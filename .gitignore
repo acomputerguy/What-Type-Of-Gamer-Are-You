@@ -1,4 +1,12 @@
+# for private note taking
+docs/private.md
+docs/TODO.md
 
+# sample data for testing
+#data/
+
+# saved logs from running the app
+#log/app.log
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
