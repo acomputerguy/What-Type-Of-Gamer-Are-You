@@ -2,11 +2,16 @@
 docs/private.md
 docs/TODO.md
 
+.idea/
+
 # sample data for testing
-#data/
+data/
 
 # saved logs from running the app
-#log/app.log
+log/app.log
+
+# local property file
+/app/properties/local.properties
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
