@@ -13,11 +13,9 @@ def show_banner():
 if __name__ == '__main__':
     show_banner()
 
-    # Create logger, add handler to print to both console and file
     logging.config.fileConfig('app/log/logging.conf')
     loggerConsole = logging.getLogger('ConsoleLogger')
     loggerConsole.info("Logging service initiated")
-    # TODO separate console and file loggers
 
     # Checking for new games to run in background, separate from main application
     newgames = NewGamesChecker.is_new_game()

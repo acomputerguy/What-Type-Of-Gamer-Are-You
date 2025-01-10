@@ -1,17 +1,26 @@
+import requests
 import logging
+
 from logging.config import fileConfig
+from app.helpers.enum.SteamEnums import SteamEnums
+
+###
+# To be: Lambda on AWS but running locally once
+###
 
 class NewGamesChecker:
 
     logging.config.fileConfig('app/log/logging.conf')
     loggerConsole = logging.getLogger('ConsoleLogger')
-    loggerFile = logging.getLogger('FileLogger')
-    loggerConsole.addHandler(loggerFile)
 
     def is_new_game():
         NewGamesChecker.loggerConsole.info("Beginning check for a new game")
         # Helper method to demonstrate from /data/local file first, before querying the website.
-        # url: https://api.steampowered.com/ISteamApps/GetAppList/v2/
+        all_games_url = SteamEnums.ALLGAMES.value
+        all_games = requests.get(all_games_url)
+        # String limit depends on platform and RAM amount. IDE complained and can incur short term mem costs
+
+
 
 
 # TODO with new game checker
