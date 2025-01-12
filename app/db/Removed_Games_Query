@@ -1,0 +1,35 @@
+
+[
+  {
+    "$project": {
+      "appids": "$applist.apps.appid"
+    }
+  },
+  {
+    "$unwind": "$appids"
+  },
+  {
+    "$lookup": {
+      "from": "Yesterdays_Games",
+      "localField": "appids",
+      "foreignField": "applist.apps.appid",
+      "as": "match"
+    }
+  },
+  {
+    "$match": {
+      "match": {
+        "$size": 0
+      }
+    }
+  },
+  {
+    "$project": {
+      "appid": "$appids",
+      "_id": 0
+    }
+  },
+  {
+    "$out": "Removed_Games"
+  }
+]
