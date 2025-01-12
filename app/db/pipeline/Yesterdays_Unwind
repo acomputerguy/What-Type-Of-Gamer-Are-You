@@ -1,0 +1,22 @@
+/**
+ * To be run on: Yesterdays_Games
+ */
+[
+  {
+    $project: {
+      appids: "$applist.apps.appid"
+    }
+  },
+  {
+    $unwind: "$appids"
+  },
+  {
+    $project: {
+      appid: "$appids",
+      _id: 0
+    }
+  },
+  {
+    $out: "Unwind_Yesterday"
+  }
+]

@@ -1,0 +1,33 @@
+/**
+ * To be run on: Unwinding_Todays_Games
+ */[
+  {
+    $project: {
+      appids: "$appid"
+    }
+  },
+  {
+    $lookup: {
+      from: "Unwinding_Yesterdays_Games",
+      localField: "appids",
+      foreignField: "appid",
+      as: "match"
+    }
+  },
+  {
+    $match: {
+      match: {
+        $size: 0
+      }
+    }
+  },
+  {
+    $project: {
+      appid: "$appids",
+      _id: 0
+    }
+  },
+  {
+    $out: "Added_Games"
+  }
+]
