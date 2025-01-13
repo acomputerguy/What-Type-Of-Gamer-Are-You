@@ -1,0 +1,24 @@
+/**
+ * To be run on: Unwind_Today
+ * AI query -
+ * right join this collection with Unwind_Yesterday collection where appid is null
+ * 88,731 added games
+ */
+ [
+  {
+    $lookup: {
+      from: "Unwind_Yesterday",
+      localField: "appid",
+      foreignField: "appid",
+      as: "todays_games"
+    }
+  },
+  {
+    $match: {
+      todays_games: { $size: 0 }
+    }
+  },
+   {
+      $out: "Added_Games"
+   }
+]

@@ -1,6 +1,7 @@
 /**
- * To be run on: Unwinding_Todays_Games
- */[
+ * To be run on: Unwind_Today
+ */
+ [
   {
     $project: {
       appids: "$appid"
@@ -8,7 +9,7 @@
   },
   {
     $lookup: {
-      from: "Unwinding_Yesterdays_Games",
+      from: "Unwind_Yesterday",
       localField: "appids",
       foreignField: "appid",
       as: "match"
