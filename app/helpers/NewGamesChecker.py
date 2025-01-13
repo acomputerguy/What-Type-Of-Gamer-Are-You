@@ -49,7 +49,7 @@ class NewGamesChecker:
             # At 12.5 MB for 220k+ games, Lambda has ephemeral storage of 512 MB. No need to redesign
             NewGamesChecker.loggerConsole.info("Today's all_game file does not exist. Creating data/all_games_" + str(today) + ".json.tmp")
             with open("data/all_games_" + str(today) + ".json.tmp", "x") as f:
-                f.write(all_games.text) #all_games.text
+                f.write(all_games.text)
             f.close()
 
     def check_for_changes():
@@ -59,30 +59,49 @@ class NewGamesChecker:
         # yesterday = "data/all_games_1.tmp"
         # today = "data/all_games_2.tmp"
 
-        NewGamesChecker.loggerConsole.info("Checking for change")
+        NewGamesChecker.loggerConsole.info("Comparing two files to find difference")
         # Shallow set to true use os.stat() signatures (file type, size, modification) and not byte-by-byte
         result = filecmp.cmp(yesterday, today, shallow=False)
 
         if result:
-            NewGamesChecker.loggerConsole.info("The files are identical.")
+            NewGamesChecker.loggerConsole.info("The files are identical")
         else:
             NewGamesChecker.loggerConsole.info("The files are different. Finding differences...")
 
-            f = open("data/added_games_set.log", "a")
+            # Find non-duplicate game count number for yesterday and today
+            yesterday_total = NewGamesChecker.day_set(yesterday)
+            today_total = NewGamesChecker.day_set(today)
+            NewGamesChecker.loggerConsole.info("Game count for yesterday: "
+                                               + str(yesterday_total)
+                                               + " and todays: "
+                                               + str(today_total))
 
-            removed_games = NewGamesChecker.find_diff_games(yesterday, today)
-            added_games = NewGamesChecker.find_diff_games(today, yesterday)
+            # List removed and added games
+            # NoSQL result:
+            # Removed games - 39.9k
+            # Added games - 88.7k
+            # Python Set result:
+            # Removed games - 65,375
+            # Added games - 30,465
+            # Confirmed duplicate examples 371660 2101210
+            # Difference (set) adds up with 151,178 yesterdays and 186,088 today
+            # But there is a discrepancy where 186088-151178 = 34910 and 30465 is actual count.
+            # What happened to 4445 games?
+            f = open("data/added_removed_games_set.log", "a")
 
-            f.write("Count: " + str(len(removed_games)) + "\n")
+            added_games = NewGamesChecker.find_diff_games(yesterday, today)
+            removed_games = NewGamesChecker.find_diff_games(today, yesterday)
+
+            f.write("Removed count: " + str(len(removed_games)) + "\n")
             for game in added_games: f.write(str(game) + "\n")
-            f.write("Count: " + str(len(added_games)) + "\n")
+            f.write("Added count: " + str(len(added_games)) + "\n")
             for game in removed_games: f.write(str(game) + "\n")
 
             f.close()
 
     def find_diff_games(dateX, dateY):
 
-        NewGamesChecker.loggerConsole.info("Searching for different games")
+        NewGamesChecker.loggerConsole.info("Searching for added or removed games")
 
         first_games_set = set()
         second_games_set = set()
@@ -102,6 +121,18 @@ class NewGamesChecker:
         different_games = first_games_set.difference(second_games_set)
 
         return different_games
+
+    def day_set(file):
+
+        date_set = set()
+        with open(file, 'r') as json_file:
+            file_dict = json.load(json_file)
+            for game in file_dict['applist']['apps']:
+                date_set.add(NewGamesChecker.GameData(game['appid'], game['name']))
+        json_file.close()
+
+        return len(date_set)
+
         """
         yesterdays_games = yesterday_dict['applist']['apps']
         todays_games = today_dict['applist']['apps']
