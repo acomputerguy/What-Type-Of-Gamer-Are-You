@@ -12,6 +12,12 @@ from app.helpers.enum.SteamEnums import SteamEnums
 ###
 # To be: Lambda on AWS but running locally once per day
 ###
+# TODO with new game checker
+# 1) use a hash to see if there is a new game (done)
+# 2) simulate with a small # of games to parse through (done)
+# 3) simulate with a large # of games to parse through, unicode exceptions (done)
+# 4) api check to grab genre
+# 5) store values into db
 
 class NewGamesChecker:
     class GameData(object):
@@ -132,40 +138,3 @@ class NewGamesChecker:
         json_file.close()
 
         return len(date_set)
-
-        """
-        yesterdays_games = yesterday_dict['applist']['apps']
-        todays_games = today_dict['applist']['apps']
-
-        counter = 0
-
-        diff_games = []
-
-        # Checks for a different game, be it removed or added
-        for y_keyval in yesterdays_games:
-            print("Checking for " + str(y_keyval['appid']))
-            counter += 1
-            percentage = counter / 230000 * 100
-            print(percentage)
-            for t_keyval in todays_games:
-                game_found = False
-                if y_keyval['appid'] == t_keyval['appid']:
-                    game_found = True
-                    # print("Appids match, breaking: " + str(y_keyval['appid']) + ", " + str(y_keyval['appid']))
-                    break
-                else:
-                    pass
-                    # print("No match, continuing search: " + str(y_keyval['appid']) + ", " + str(t_keyval['appid']) )
-            if not game_found:
-                # print("Appid does not exist, storing unique value: " + str(y_keyval))
-                diff_games.append(y_keyval)
-
-        return diff_games
-        """
-
-# TODO with new game checker
-# 1) use a hash to see if there is a new game (done)
-# 2) simulate with a small # of games to parse through (done)
-# 3) simulate with a large # of games to parse through, unicode exceptions (pending)
-# 4) store small set of data into database as an example
-# 5) store remaining data in db
