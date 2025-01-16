@@ -13,11 +13,8 @@ from app.helpers.enum.SteamEnums import SteamEnums
 # To be: Lambda on AWS but running locally once per day
 ###
 # TODO with new game checker
-# 1) use a hash to see if there is a new game (done)
-# 2) simulate with a small # of games to parse through (done)
-# 3) simulate with a large # of games to parse through, unicode exceptions (done)
-# 4) api check to grab genre
-# 5) store values into db
+# 1) grab genre
+# 2) store in db
 
 class NewGamesChecker:
     class GameData(object):
@@ -60,10 +57,10 @@ class NewGamesChecker:
 
     def check_for_changes():
 
-        yesterday = "data/all_games_2025-01-09.json.tmp"
-        today = "data/all_games_2025-01-10.json.tmp"
-        # yesterday = "data/all_games_1.tmp"
-        # today = "data/all_games_2.tmp"
+        # yesterday = "data/all_games_2025-01-09.json.tmp"
+        # today = "data/all_games_2025-01-10.json.tmp"
+        yesterday = "data/all_games_1.tmp"
+        today = "data/all_games_2.tmp"
 
         NewGamesChecker.loggerConsole.info("Comparing two files to find difference")
         # Shallow set to true use os.stat() signatures (file type, size, modification) and not byte-by-byte
@@ -74,67 +71,44 @@ class NewGamesChecker:
         else:
             NewGamesChecker.loggerConsole.info("The files are different. Finding differences...")
 
-            # Find non-duplicate game count number for yesterday and today
-            yesterday_total = NewGamesChecker.day_set(yesterday)
-            today_total = NewGamesChecker.day_set(today)
-            NewGamesChecker.loggerConsole.info("Game count for yesterday: "
-                                               + str(yesterday_total)
-                                               + " and todays: "
-                                               + str(today_total))
-
-            # List removed and added games
-            # NoSQL result:
-            # Removed games - 39.9k
-            # Added games - 88.7k
-            # Python Set result:
-            # Removed games - 65,375
-            # Added games - 30,465
-            # Confirmed duplicate examples 371660 2101210
-            # Difference (set) adds up with 151,178 yesterdays and 186,088 today
-            # But there is a discrepancy where 186088-151178 = 34910 and 30465 is actual count.
-            # What happened to 4445 games?
             f = open("data/added_removed_games_set.log", "a")
 
-            added_games = NewGamesChecker.find_diff_games(yesterday, today)
-            removed_games = NewGamesChecker.find_diff_games(today, yesterday)
+            added_games = NewGamesChecker.find_diff_games(today, yesterday, False)
+            removed_games = NewGamesChecker.find_diff_games(yesterday, today, True)
 
             f.write("Removed count: " + str(len(removed_games)) + "\n")
-            for game in added_games: f.write(str(game) + "\n")
-            f.write("Added count: " + str(len(added_games)) + "\n")
             for game in removed_games: f.write(str(game) + "\n")
+            f.write("Added count: " + str(len(added_games)) + "\n")
+            for game in added_games: f.write(str(game) + "\n")
 
             f.close()
 
-    def find_diff_games(dateX, dateY):
+    def find_diff_games(dateX, dateY, isAdd):
 
         NewGamesChecker.loggerConsole.info("Searching for added or removed games")
 
-        first_games_set = set()
-        second_games_set = set()
+        first_games_set = NewGamesChecker.make_set(dateX)
+        second_games_set = NewGamesChecker.make_set(dateY)
 
-        with open(dateX, 'r') as json_file:
-            yesterday_dict = json.load(json_file)
-            for game in yesterday_dict['applist']['apps']:
-                first_games_set.add(NewGamesChecker.GameData(game['appid'], game['name']))
-        json_file.close()
-
-        with open(dateY, 'r') as json_file:
-            today_dict = json.load(json_file)
-            for game in today_dict['applist']['apps']:
-                second_games_set.add(NewGamesChecker.GameData(game['appid'], game['name']))
-        json_file.close()
+        # Find non-duplicate game count number for yesterday and today
+        if isAdd:
+            NewGamesChecker.loggerConsole.info("Game count for yesterday: "
+                                               + str(len(first_games_set))
+                                               + " and todays: "
+                                               + str(len(second_games_set)))
 
         different_games = first_games_set.difference(second_games_set)
 
         return different_games
 
-    def day_set(file):
+    def make_set(file):
 
-        date_set = set()
+        set_name = set()
+
         with open(file, 'r') as json_file:
             file_dict = json.load(json_file)
             for game in file_dict['applist']['apps']:
-                date_set.add(NewGamesChecker.GameData(game['appid'], game['name']))
+                set_name.add(NewGamesChecker.GameData(game['appid'], game['name']))
         json_file.close()
 
-        return len(date_set)
+        return set_name
