@@ -5,17 +5,13 @@ import os
 import filecmp
 import json
 
-
 from logging.config import fileConfig
+from pymongo import MongoClient
 from app.helpers.enum.SteamEnums import SteamEnums
 
 ###
 # To be: Lambda on AWS but running locally once per day
 ###
-# TODO with new game checker
-# 1) grab genre
-# 2) store in db
-
 class NewGamesChecker:
     class GameData(object):
         def __init__(self, appid, name):
@@ -35,6 +31,7 @@ class NewGamesChecker:
     def is_new_game():
         NewGamesChecker.loggerConsole.info("Beginning check for a new game")
         #NewGamesChecker.download_all_games()
+        NewGamesChecker.connect_2_cluster()
         NewGamesChecker.check_for_changes()
 
     def download_all_games():
@@ -85,7 +82,10 @@ class NewGamesChecker:
 
     def find_diff_games(dateX, dateY, isAdd):
 
-        NewGamesChecker.loggerConsole.info("Searching for added or removed games")
+        if not isAdd:
+            NewGamesChecker.loggerConsole.info("Searching for added games")
+        else:
+            NewGamesChecker.loggerConsole.info("Searching for removed games")
 
         first_games_set = NewGamesChecker.make_set(dateX)
         second_games_set = NewGamesChecker.make_set(dateY)
@@ -112,3 +112,23 @@ class NewGamesChecker:
         json_file.close()
 
         return set_name
+
+    def connect_2_cluster():
+        NewGamesChecker.loggerConsole.info("Establishing connection to Atlas Cluster on MongoDB")
+
+        clientURL = ""
+        collectionName = ""
+
+        try:
+            clientURL = os.environ['clientURL']
+            collectionName = os.environ['collectionName']
+            # clientURL = NewGamesChecker.config['MongoDB']['clientURL']
+            # collectionName = NewGamesChecker.config['MongoDB']['collectionName']
+        except KeyError as keyErr:
+            NewGamesChecker.loggerConsole.info(f'Issue with reading configuration: {keyErr}')
+
+        client = MongoClient(clientURL, tls=True, tlsAllowInvalidCertificates=True) # Use SSL
+        db = client[collectionName]
+        documents = db.list_collection_names()
+
+        print(documents)
