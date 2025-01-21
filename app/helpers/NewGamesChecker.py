@@ -4,6 +4,7 @@ import datetime
 import os
 import filecmp
 import json
+from datetime import datetime
 
 from logging.config import fileConfig
 from pymongo import MongoClient
@@ -32,7 +33,7 @@ class NewGamesChecker:
         NewGamesChecker.loggerConsole.info("Beginning check for a new game")
         #NewGamesChecker.download_all_games()
         NewGamesChecker.connect_2_cluster()
-        NewGamesChecker.check_for_changes()
+        #NewGamesChecker.check_for_changes()
 
     def download_all_games():
         # Helper method to demonstrate from /data/local file first, before querying the website.
@@ -122,13 +123,39 @@ class NewGamesChecker:
         try:
             clientURL = os.environ['clientURL']
             collectionName = os.environ['collectionName']
-            # clientURL = NewGamesChecker.config['MongoDB']['clientURL']
-            # collectionName = NewGamesChecker.config['MongoDB']['collectionName']
         except KeyError as keyErr:
             NewGamesChecker.loggerConsole.info(f'Issue with reading configuration: {keyErr}')
 
         client = MongoClient(clientURL, tls=True, tlsAllowInvalidCertificates=True) # Use SSL
-        db = client[collectionName]
-        documents = db.list_collection_names()
+        db = client.get_database(collectionName).get_collection("all_games")
 
-        print(documents)
+        NewGamesChecker.insert_games(db, collectionName)
+
+    def insert_games(db, collectionName):
+    # TODO condition for if the game existed before
+        games_output = NewGamesChecker.first_game_helper()
+
+        insert_time = datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
+
+        NewGamesChecker.loggerConsole.info(f"Inserting document into collection {collectionName} ")
+
+        # to create the primary game file
+        for game in games_output:
+            insert_result = db.insert_one(
+                {"appid": str(game.appid),
+                 "name": str(game.name),
+                 "Removed": "boolean",
+                 "Added": "boolean",
+                 "Genre": "action, fighting",
+                 "insert_date": insert_time,
+                 "updated_date": "N/A"
+                 })
+            print(insert_result)
+
+    def first_game_helper():
+        NewGamesChecker.loggerConsole.info("Grabbing games from locally stored file ")
+
+        base_games = "data/all_games_1.tmp"
+        games_output = NewGamesChecker.make_set(base_games)
+
+        return games_output
