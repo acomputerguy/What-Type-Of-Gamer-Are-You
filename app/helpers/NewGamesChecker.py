@@ -5,6 +5,7 @@ import os
 import filecmp
 import json
 from datetime import datetime
+import configparser
 
 from logging.config import fileConfig
 from pymongo import MongoClient
@@ -29,11 +30,15 @@ class NewGamesChecker:
     logging.config.fileConfig('app/log/logging.conf')
     loggerConsole = logging.getLogger('ConsoleLogger')
 
+    config = configparser.ConfigParser()
+    config.read('app/properties/local.properties')
+
     def is_new_game():
         NewGamesChecker.loggerConsole.info("Beginning check for a new game")
         #NewGamesChecker.download_all_games()
-        NewGamesChecker.connect_2_cluster()
-        #NewGamesChecker.check_for_changes()
+        conn = NewGamesChecker.connect_2_cluster()
+        changedGames = NewGamesChecker.check_for_changes()
+        NewGamesChecker.insert_games(conn[0], conn[1], changedGames[0], changedGames[1])
 
     def download_all_games():
         # Helper method to demonstrate from /data/local file first, before querying the website.
@@ -80,6 +85,7 @@ class NewGamesChecker:
             for game in added_games: f.write(str(game) + "\n")
 
             f.close()
+        return added_games, removed_games
 
     def find_diff_games(dateX, dateY, isAdd):
 
@@ -114,43 +120,63 @@ class NewGamesChecker:
 
         return set_name
 
-    def connect_2_cluster():
+    def connect_2_cluster(): # move to conn folder
         NewGamesChecker.loggerConsole.info("Establishing connection to Atlas Cluster on MongoDB")
 
         clientURL = ""
-        collectionName = ""
+        databaseName = ""
 
         try:
             clientURL = os.environ['clientURL']
-            collectionName = os.environ['collectionName']
+            databaseName = os.environ['databaseName']
         except KeyError as keyErr:
             NewGamesChecker.loggerConsole.info(f'Issue with reading configuration: {keyErr}')
 
         client = MongoClient(clientURL, tls=True, tlsAllowInvalidCertificates=True) # Use SSL
-        db = client.get_database(collectionName).get_collection("all_games")
 
-        NewGamesChecker.insert_games(db, collectionName)
+        collectionName = NewGamesChecker.config['MongoDB']['collectionName']
+        db = client.get_database(databaseName).get_collection(collectionName)
 
-    def insert_games(db, collectionName):
-    # TODO condition for if the game existed before
+        return db, databaseName
+
+    def insert_games(db, dbName, addedGames, removedGames):
+        # TODO condition for if the game existed before
+        # logic goes: find diff locally, add changes to db. db is there for genre storage
+
         games_output = NewGamesChecker.first_game_helper()
 
         insert_time = datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
 
-        NewGamesChecker.loggerConsole.info(f"Inserting document into collection {collectionName} ")
+        NewGamesChecker.loggerConsole.info(f"Inserting document into database {dbName}")
 
-        # to create the primary game file
+        # Create primary all_games collection with values
+
         for game in games_output:
             insert_result = db.insert_one(
-                {"appid": str(game.appid),
-                 "name": str(game.name),
-                 "Removed": "boolean",
-                 "Added": "boolean",
-                 "Genre": "action, fighting",
+                {"appid": game.appid,
+                 "name": game.name,
+                 "removed": False,
+                 "added": False,
+                 "genre": "action, fighting",
                  "insert_date": insert_time,
                  "updated_date": "N/A"
                  })
             print(insert_result)
+
+        # Updating removed games
+        for item in removedGames:
+            filter = {'appid' : item.appid}
+            update_time = datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
+            update = {'$set' : {'removed' : True, 'updated_date' : update_time} }
+            updating = db.update_one(filter, update)
+            print(updating)
+
+        for item in addedGames:
+            filter = {'appid' : item.appid}
+            update_time = datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
+            update = {'$set': {'added': True, 'updated_date': update_time}}
+            updating = db.update_one(filter, update)
+            print(updating)
 
     def first_game_helper():
         NewGamesChecker.loggerConsole.info("Grabbing games from locally stored file ")
