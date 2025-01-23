@@ -60,10 +60,10 @@ class NewGamesChecker:
 
     def check_for_changes():
 
-        # yesterday = "data/all_games_2025-01-09.json.tmp"
-        # today = "data/all_games_2025-01-10.json.tmp"
-        yesterday = "data/all_games_1.tmp"
-        today = "data/all_games_2.tmp"
+        yesterday = "data/all_games_2025-01-09.json.tmp"
+        today = "data/all_games_2025-01-10.json.tmp"
+        # yesterday = "data/all_games_1.tmp"
+        # today = "data/all_games_2.tmp"
 
         NewGamesChecker.loggerConsole.info("Comparing two files to find difference")
         # Shallow set to true use os.stat() signatures (file type, size, modification) and not byte-by-byte
@@ -140,8 +140,6 @@ class NewGamesChecker:
         return db, databaseName
 
     def insert_games(db, dbName, addedGames, removedGames):
-        # TODO condition for if the game existed before
-        # logic goes: find diff locally, add changes to db. db is there for genre storage
 
         games_output = NewGamesChecker.first_game_helper()
 
@@ -157,7 +155,7 @@ class NewGamesChecker:
             elif numDocs > 1:
                 NewGamesChecker.loggerConsole.error(f"There should not be more than 1 document of {game.appid}")
             else:
-                NewGamesChecker.loggerConsole.info("Document with appid does not exist. Inserting...")
+                NewGamesChecker.loggerConsole.info(f"Document with appid {game.appid} does not exist. Inserting...")
                 insert_result = db.insert_one(
                     {"appid": game.appid,
                      "name": game.name,
@@ -168,30 +166,35 @@ class NewGamesChecker:
                      "updated_date": "N/A"
                      }
                 )
-                print(insert_result)
 
         # Updating removed games
         for item in removedGames:
             NewGamesChecker.loggerConsole.info(f"Updating removed game {item.appid}")
-            filter = {'appid' : item.appid }
+            filter = {'appid' : item.appid}
             update_time = datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
             update = {'$set' : {'removed' : True, 'updated_date' : update_time} }
             updating = db.update_one(filter, update)
             print(updating)
 
         # Adding new games
+        insert_time = datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
         for item in addedGames:
             NewGamesChecker.loggerConsole.info(f"Adding new game {item.appid}")
-            filter = {'appid' : item.appid }
-            update_time = datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
-            update = {'$set': {'added': True, 'updated_date': update_time}}
-            updating = db.update_one(filter, update)
-            print(updating)
+            insert_result = db.insert_one(
+                            {"appid": item.appid,
+                             "name": item.name,
+                             "removed": False,
+                             "added": True,
+                             "genre": "action, fighting",
+                             "insert_date": insert_time,
+                             "updated_date": "N/A"
+                             }
+            )
 
     def first_game_helper():
-        NewGamesChecker.loggerConsole.info("Grabbing games from locally stored file ")
+        NewGamesChecker.loggerConsole.info("Grabbing games from locally stored file")
 
-        base_games = "data/all_games_1.tmp"
+        base_games = "data/all_games_2025-01-09.json.tmp"
         games_output = NewGamesChecker.make_set(base_games)
 
         return games_output
