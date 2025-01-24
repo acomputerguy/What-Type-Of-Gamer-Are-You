@@ -148,39 +148,49 @@ class NewGamesChecker:
         NewGamesChecker.loggerConsole.info(f"Inserting document into database {dbName}")
 
         # Create primary all_games collection with values
+        allGamesList = []
         for game in games_output:
-            numDocs = db.count_documents({'appid':game.appid})
-            if numDocs == 1:
-                NewGamesChecker.loggerConsole.info(f"Document with appid {game.appid} already exists")
-            elif numDocs > 1:
-                NewGamesChecker.loggerConsole.error(f"There should not be more than 1 document of {game.appid}")
-            else:
-                NewGamesChecker.loggerConsole.info(f"Document with appid {game.appid} does not exist. Inserting...")
-                insert_result = db.insert_one(
-                    {"appid": game.appid,
-                     "name": game.name,
-                     "removed": False,
-                     "added": False,
-                     "genre": "action, fighting",
-                     "insert_date": insert_time,
-                     "updated_date": "N/A"
-                     }
-                )
+            allGamesList.append(
+                {"appid": game.appid,
+                 "name": game.name,
+                 "removed": False,
+                 "added": False,
+                 "genre": "action, fighting",
+                 "insert_date": insert_time,
+                 "updated_date": "N/A"}
+            )
+            # numDocs = db.count_documents({'appid':game.appid})
+            # if numDocs == 1:
+            #     NewGamesChecker.loggerConsole.info(f"Document with appid {game.appid} already exists")
+            # elif numDocs > 1:
+            #     NewGamesChecker.loggerConsole.error(f"There should not be more than 1 document of {game.appid}")
+            # else:
+            #     # NewGamesChecker.loggerConsole.info(f"Document with appid {game.appid} does not exist. Inserting...")
+            #     allGamesList.append(
+            #                         {"appid": game.appid,
+            #                          "name": game.name,
+            #                          "removed": False,
+            #                          "added": False,
+            #                          "genre": "action, fighting",
+            #                          "insert_date": insert_time,
+            #                          "updated_date": "N/A"}
+            #                         )
+        print("Inserting takes 20-30sec")
+        db.insert_many(allGamesList)
 
-        # Updating removed games
+        # Updating removed games. Instead of looping, use update_many
         for item in removedGames:
             NewGamesChecker.loggerConsole.info(f"Updating removed game {item.appid}")
             filter = {'appid' : item.appid}
             update_time = datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
             update = {'$set' : {'removed' : True, 'updated_date' : update_time} }
-            updating = db.update_one(filter, update)
-            print(updating)
+            db.update_one(filter, update)
 
-        # Adding new games
+        # Adding new games. Insert_many()
         insert_time = datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
         for item in addedGames:
             NewGamesChecker.loggerConsole.info(f"Adding new game {item.appid}")
-            insert_result = db.insert_one(
+            db.insert_one(
                             {"appid": item.appid,
                              "name": item.name,
                              "removed": False,
@@ -193,7 +203,7 @@ class NewGamesChecker:
 
     def first_game_helper():
         NewGamesChecker.loggerConsole.info("Grabbing games from locally stored file")
-
+        # base_games = "data/all_games_1.tmp"
         base_games = "data/all_games_2025-01-09.json.tmp"
         games_output = NewGamesChecker.make_set(base_games)
 
