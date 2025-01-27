@@ -178,28 +178,51 @@ class NewGamesChecker:
         print("Inserting takes 20-30sec")
         db.insert_many(allGamesList)
 
-        # Updating removed games. Instead of looping, use update_many
+        # Updating removed games
+        allRemovedGames = []
         for item in removedGames:
-            NewGamesChecker.loggerConsole.info(f"Updating removed game {item.appid}")
-            filter = {'appid' : item.appid}
-            update_time = datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
-            update = {'$set' : {'removed' : True, 'updated_date' : update_time} }
-            db.update_one(filter, update)
+            allRemovedGames.append({'appid': item.appid})
+        allRemovedLen = str(len(allRemovedGames))
+        NewGamesChecker.loggerConsole.info(f"Updating {allRemovedLen} documents from removed games into database")
+        update_time = datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
+        update = {'$set' : {'removed' : False, 'updated_date' : update_time} }
+        db.aggregate([
+            {
+                '$match': {
+                    '$or': allRemovedGames
+                }
+            }, {
+                '$set': {
+                    'removed': True,
+                    'updated_date': update_time
+                }
+            },
+            {
+                "$merge":
+                 {
+                     "into": "all_games",
+                     "on": "_id",
+                     "whenMatched": "replace"}
+            }
+        ])
+        NewGamesChecker.loggerConsole.info(f"Completed updated games")
 
-        # Adding new games. Insert_many()
+        # Adding new games
+        allAddedGames = []
         insert_time = datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
         for item in addedGames:
-            NewGamesChecker.loggerConsole.info(f"Adding new game {item.appid}")
-            db.insert_one(
-                            {"appid": item.appid,
-                             "name": item.name,
-                             "removed": False,
-                             "added": True,
-                             "genre": "action, fighting",
-                             "insert_date": insert_time,
-                             "updated_date": "N/A"
-                             }
+            allAddedGames.append(
+                {"appid": item.appid,
+                 "name": item.name,
+                 "removed": False,
+                 "added": True,
+                 "genre": "action, fighting",
+                 "insert_date": insert_time,
+                 "updated_date": "N/A"}
             )
+        allAddedLen = str(len(allAddedGames))
+        NewGamesChecker.loggerConsole.info(f"Inserting {allAddedLen} documents from added games into database")
+        db.insert_many(allAddedGames)
 
     def first_game_helper():
         NewGamesChecker.loggerConsole.info("Grabbing games from locally stored file")
