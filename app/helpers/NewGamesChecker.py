@@ -141,51 +141,54 @@ class NewGamesChecker:
 
     def insert_games(db, dbName, addedGames, removedGames):
 
-        games_output = NewGamesChecker.first_game_helper()
+        NewGamesChecker.loggerConsole.info(f"Begin insert/update operations on documents from {dbName}")
+
+        # Create primary all_games collection with values
+        # Helper method with 1 time use
+        NewGamesChecker.insert_base_helper(db)
+
+        # Updating removed games
+        # Changes the update time if run again - same appid can be removed more than once.
+        NewGamesChecker.update_removed_games(db, removedGames)
+
+        # Adding new games
+        # Game can be renamed
+        NewGamesChecker.update_added_games(db, addedGames)
+
+    def insert_base_helper(db):
+        NewGamesChecker.loggerConsole.info("Grabbing games from locally stored file")
+        base_games = "data/all_games_1.tmp"
+        # base_games = "data/all_games_2025-01-09.json.tmp"
+        games_output = NewGamesChecker.make_set(base_games)
 
         insert_time = datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
 
-        NewGamesChecker.loggerConsole.info(f"Inserting document into database {dbName}")
-
-        # Create primary all_games collection with values
         allGamesList = []
         for game in games_output:
             allGamesList.append(
-                {"appid": game.appid,
+                {"_id": game.appid,
                  "name": game.name,
                  "removed": False,
                  "added": False,
+                 "renamed": False,
                  "genre": "action, fighting",
                  "insert_date": insert_time,
                  "updated_date": "N/A"}
             )
-            # numDocs = db.count_documents({'appid':game.appid})
-            # if numDocs == 1:
-            #     NewGamesChecker.loggerConsole.info(f"Document with appid {game.appid} already exists")
-            # elif numDocs > 1:
-            #     NewGamesChecker.loggerConsole.error(f"There should not be more than 1 document of {game.appid}")
-            # else:
-            #     # NewGamesChecker.loggerConsole.info(f"Document with appid {game.appid} does not exist. Inserting...")
-            #     allGamesList.append(
-            #                         {"appid": game.appid,
-            #                          "name": game.name,
-            #                          "removed": False,
-            #                          "added": False,
-            #                          "genre": "action, fighting",
-            #                          "insert_date": insert_time,
-            #                          "updated_date": "N/A"}
-            #                         )
-        print("Inserting takes 20-30sec")
+
+        allGamesLen = str(len(allGamesList))
+        NewGamesChecker.loggerConsole.info(f"Inserting {allGamesLen} documents from all games into database")
         db.insert_many(allGamesList)
 
-        # Updating removed games
+    def update_removed_games(db, removedGames):
         allRemovedGames = []
         for item in removedGames:
-            allRemovedGames.append({'appid': item.appid})
+            allRemovedGames.append({'_id': item.appid})
+
         allRemovedLen = str(len(allRemovedGames))
-        NewGamesChecker.loggerConsole.info(f"Updating {allRemovedLen} documents from removed games into database")
+        NewGamesChecker.loggerConsole.info(f"Updating {allRemovedLen} documents as removed games into database")
         update_time = datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
-        update = {'$set' : {'removed' : False, 'updated_date' : update_time} }
+
         db.aggregate([
             {
                 '$match': {
@@ -205,29 +208,59 @@ class NewGamesChecker:
                      "whenMatched": "replace"}
             }
         ])
-        NewGamesChecker.loggerConsole.info(f"Completed updated games")
+        NewGamesChecker.loggerConsole.info(f"Completed updating {allRemovedLen} removed games")
 
-        # Adding new games
+    def update_added_games(db, addedGames):
         allAddedGames = []
         insert_time = datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
         for item in addedGames:
             allAddedGames.append(
-                {"appid": item.appid,
+                {"_id": item.appid,
                  "name": item.name,
                  "removed": False,
                  "added": True,
+                 "renamed": False,
                  "genre": "action, fighting",
                  "insert_date": insert_time,
                  "updated_date": "N/A"}
             )
+
         allAddedLen = str(len(allAddedGames))
         NewGamesChecker.loggerConsole.info(f"Inserting {allAddedLen} documents from added games into database")
-        db.insert_many(allAddedGames)
 
-    def first_game_helper():
-        NewGamesChecker.loggerConsole.info("Grabbing games from locally stored file")
-        # base_games = "data/all_games_1.tmp"
-        base_games = "data/all_games_2025-01-09.json.tmp"
-        games_output = NewGamesChecker.make_set(base_games)
+        duplicateIds = []
+        try:
+            db.insert_many(allAddedGames, ordered=False) # unordered allows remaining games to be inserted
+        except Exception as BulkWriteError:
+            for err in BulkWriteError.details['writeErrors']:
+                duplicateIds.append(err['keyValue']["_id"])
+            NewGamesChecker.loggerConsole.error(f"Problem with appids {duplicateIds} already existing")
+            print(BulkWriteError.details['writeErrors'])
 
-        return games_output
+        # NewGamesChecker.loggerConsole.info(f"Updating names for appids {duplicateIds}")
+        # update_time = datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
+        # db.aggregate([
+        #     {
+        #         '$match': {
+        #             '$or': duplicateIds
+        #         }
+        #     }, {
+        #         '$set': {
+        #             'name': xxx,
+        #             'renamed': True,
+        #             'updated_date': update_time
+        #         }
+        #     },
+        #     {
+        #         "$merge":
+        #             {
+        #                 "into": "all_games",
+        #                 "on": "_id",
+        #                 "whenMatched": "replace"}
+        #     }
+        # ])
+
+        # Games can be renamed
+        # 3386350 Shinjuku Incident -> Shinjuku Anomaly
+        # 1089671 "TFFP - DLC 02" -> "The Fisherman - Fishing Planet: Predator Boat Pack"
+        # 3334690 japanese to english
