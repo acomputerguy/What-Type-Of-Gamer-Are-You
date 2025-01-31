@@ -1,12 +1,12 @@
 [
             {
-                '$match': {
-                    '$or': allRemovedGames
+                "$match": {
+                    "$or": "$allRemovedGames"
                 }
             }, {
-                '$set': {
-                    'removed': True,
-                    'updated_date': update_time
+                "$set": {
+                    "removed": true,
+                    "updated_date": "$update_time"
                 }
             },
             {
