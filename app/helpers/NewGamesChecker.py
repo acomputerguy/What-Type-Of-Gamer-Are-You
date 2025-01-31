@@ -60,10 +60,10 @@ class NewGamesChecker:
 
     def check_for_changes():
 
-        yesterday = "data/all_games_2025-01-09.json.tmp"
-        today = "data/all_games_2025-01-10.json.tmp"
-        # yesterday = "data/all_games_1.tmp"
-        # today = "data/all_games_2.tmp"
+        # yesterday = "data/all_games_2025-01-09.json.tmp"
+        # today = "data/all_games_2025-01-10.json.tmp"
+        yesterday = "data/all_games_1.tmp"
+        today = "data/all_games_2.tmp"
 
         NewGamesChecker.loggerConsole.info("Comparing two files to find difference")
         # Shallow set to true use os.stat() signatures (file type, size, modification) and not byte-by-byte
@@ -173,7 +173,8 @@ class NewGamesChecker:
                  "renamed": False,
                  "genre": "action, fighting",
                  "insert_date": insert_time,
-                 "updated_date": "N/A"}
+                 "updated_date": "N/A",
+                 "previous_name": ""}
             )
 
         allGamesLen = str(len(allGamesList))
@@ -222,7 +223,8 @@ class NewGamesChecker:
                  "renamed": False,
                  "genre": "action, fighting",
                  "insert_date": insert_time,
-                 "updated_date": "N/A"}
+                 "updated_date": "N/A",
+                 "previous_name": ""}
             )
 
         allAddedLen = str(len(allAddedGames))
@@ -233,32 +235,38 @@ class NewGamesChecker:
             db.insert_many(allAddedGames, ordered=False) # unordered allows remaining games to be inserted
         except Exception as BulkWriteError:
             for err in BulkWriteError.details['writeErrors']:
-                duplicateIds.append(err['keyValue']["_id"])
-            NewGamesChecker.loggerConsole.error(f"Problem with appids {duplicateIds} already existing")
-            print(BulkWriteError.details['writeErrors'])
-
+                # duplicateIds.append({err['op']['_id'], err['op']['name']}) -> they come as a set
+                gameid = {err['op']['_id']}
+                name = {err['op']['name']}
+                tempDict = {}
+                for singleItem in gameid:
+                    tempDict['appid'] = singleItem
+                for singleItem in name:
+                    tempDict['name'] = singleItem
+                duplicateIds.append(tempDict)
+            NewGamesChecker.loggerConsole.info(f"Duplicate appids {duplicateIds} already exist")
         # NewGamesChecker.loggerConsole.info(f"Updating names for appids {duplicateIds}")
-        # update_time = datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
-        # db.aggregate([
-        #     {
-        #         '$match': {
-        #             '$or': duplicateIds
-        #         }
-        #     }, {
-        #         '$set': {
-        #             'name': xxx,
-        #             'renamed': True,
-        #             'updated_date': update_time
-        #         }
-        #     },
-        #     {
-        #         "$merge":
-        #             {
-        #                 "into": "all_games",
-        #                 "on": "_id",
-        #                 "whenMatched": "replace"}
-        #     }
-        # ])
+        update_time = datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
+        db.aggregate([
+            {
+                '$match': {
+                    '_id': duplicateIds[0]['appid']
+                }
+            }, {
+                '$set': {
+                    'previous_name': {'$concat':['$name', ", ", '$previous_name']},
+                    'name': duplicateIds[0]['name'],
+                    'updated_date': update_time
+                }
+            },
+            {
+                "$merge":
+                    {
+                        "into": "all_games",
+                        "on": "_id",
+                        "whenMatched": "replace"}
+            }
+        ])
 
         # Games can be renamed
         # 3386350 Shinjuku Incident -> Shinjuku Anomaly

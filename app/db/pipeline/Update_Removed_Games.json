@@ -1,0 +1,19 @@
+[
+            {
+                '$match': {
+                    '$or': allRemovedGames
+                }
+            }, {
+                '$set': {
+                    'removed': True,
+                    'updated_date': update_time
+                }
+            },
+            {
+                "$merge":
+                 {
+                     "into": "all_games",
+                     "on": "_id",
+                     "whenMatched": "replace"}
+            }
+        ]
