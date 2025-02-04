@@ -1,8 +1,7 @@
 import sys
-import logging
 import logging.config
-from app.conn.DatabaseConnection import DatabaseConnection
-from app.helpers.NewGamesChecker import NewGamesChecker
+from app.lambas.NewGamesChecker import NewGamesChecker
+from app.profile.AnalyzeHabits import AnalyzeHabits
 
 def show_banner():
     banner = open("app/misc/banner.txt")
@@ -20,13 +19,6 @@ if __name__ == '__main__':
     # Checking for new games to run in background, separate from main application
     newgames = NewGamesChecker.is_new_game()
 
-
-    # TODO with database
-    # set up connection to database with models, queries to insert/remove (3 classes)
-    # connect to steam api to get metadata from games
-    # start with first 10 games from 100k games and download to database
-    # daily job to check for new games with hash
-    # loggerConsole.info("Initiating database connection")
-    # dbConn = DatabaseConnection.connectToDatabase()
-
+    # Analyze gaming habits
+    # AnalyzeHabits.checkSteam()
 
